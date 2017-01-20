@@ -115,7 +115,6 @@ class TestGet(unittest.TestCase):
 
 
 class TestWalk(unittest.TestCase):
-
     @patch('puresnmp.transport.Transport.send')
     def test_walk(self, mck_send):
         response_1 = readbytes('walk_response_1.hex')
@@ -146,7 +145,6 @@ class TestWalk(unittest.TestCase):
 
 
 class TestSet(unittest.TestCase):
-
     def test_set_without_type(self):
         """
         As we need typing information, we have to hand in an instance of
@@ -178,7 +176,6 @@ class TestSet(unittest.TestCase):
 
 
 class TestMultiGet(unittest.TestCase):
-
     @patch('puresnmp.transport.Transport.send')
     def test_multiget(self, mck_send):
         data = readbytes('multiget_response.hex')
@@ -462,7 +459,7 @@ class TestGetTable(unittest.TestCase):
     @patch('puresnmp.x690.util.tablify')
     @patch('puresnmp.client.Client.walk')
     @patch('puresnmp.client.Client._get_request_id')
-    def test_table(self, mck_rid, mck_walk, mck_tablify, ):
+    def test_table(self, mck_rid, mck_walk, mck_tablify):
         mck_rid.return_value = 0
         tmp = list()  # dummy iterable return value
         mck_walk.return_value = tmp
@@ -472,3 +469,59 @@ class TestGetTable(unittest.TestCase):
 
         mck_walk.assert_called_with('::1', '1.2.3.4', port=161)
         mck_tablify.assert_called_with(tmp, num_base_nodes=2)
+
+    @patch('puresnmp.client.Client.walk')
+    @patch('puresnmp.client.Client._get_request_id')
+    def test_table_num_base_nodes(self, mck_rid, mck_walk):
+        res = [
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.1.192.168.0.2'), Integer(12)),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.1.192.168.0.3'), Integer(13)),
+
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.2.192.168.0.2'), Integer(22)),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.2.192.168.0.3'), Integer(23)),
+
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.3.192.168.0.2'), Integer(32)),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.3.192.168.0.3'), Integer(33)),
+        ]
+
+        expect_192_168_0_2 = {
+            '0': '192.168.0.2',
+            '1': Integer(12),
+            '2': Integer(22),
+            '3': Integer(32),
+        }
+        expect_192_168_0_3 = {
+            '0': '192.168.0.3',
+            '1': Integer(13),
+            '2': Integer(23),
+            '3': Integer(33),
+        }
+
+        mck_rid.return_value = 0
+        mck_walk.return_value = res
+
+        client = Client(transport=Transport(), community='public')
+        tbl = client.table('::1', '1.2.3.4.1', num_base_nodes=5)
+
+        self.assertEqual(2, len(tbl))
+
+        for entry in tbl:
+            if entry['0'] == '192.168.0.2':
+                self.assertDictEqual(entry, expect_192_168_0_2)
+            elif entry['0'] == '192.168.0.3':
+                self.assertDictEqual(entry, expect_192_168_0_3)
+            else:
+                raise AssertionError("Key \"{}\" should not be here".format(entry['0']))
+
+    @patch('puresnmp.x690.util.tablify')
+    @patch('puresnmp.client.Client.walk')
+    @patch('puresnmp.client.Client._get_request_id')
+    def test_table_auto_num_base_nodes(self, mck_rid, mck_walk, mck_tablify):
+        mck_rid.return_value = 0
+        tmp = list()  # dummy iterable return value
+        mck_walk.return_value = tmp
+
+        client = Client(transport=Transport(), community='public')
+        tbl = client.table('::1', '1.2.3.4.1')
+
+        mck_tablify.assert_called_with(tmp, num_base_nodes=5)

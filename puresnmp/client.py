@@ -455,10 +455,35 @@ class Client:
         The table is a row of dicts. The key of each dict is the row ID. By default
         that is the **last** node of the OID tree.
 
-        If the rows are identified by multiple nodes, you need to secify the base by
-        setting *walk* to a non-zero value.
+        If the rows are identified by multiple nodes, the number of base nodes is computed from *oid*
+        (an *oid* of '1.2.3.4' would set the *num_base_nodes* to 4).
+        You can overwrite this by setting *num_base_nodes* to a non-zero value.
+
+        Example::
+
+
+            >>> from pprint import pprint
+            >>> t = Transport()
+            >>> c = Client(t, 'private')
+            >>> wlk = c.walk('::1', '1.2.3.4.1')
+            >>> pprint(wlk)
+            [VarBind(oid=ObjectIdentifier((1, 2, 3, 4, 1, 1, 192, 168, 0, 2)), value=Integer(12)),
+             VarBind(oid=ObjectIdentifier((1, 2, 3, 4, 1, 1, 192, 168, 0, 3)), value=Integer(13)),
+             VarBind(oid=ObjectIdentifier((1, 2, 3, 4, 1, 2, 192, 168, 0, 2)), value=Integer(22)),
+             VarBind(oid=ObjectIdentifier((1, 2, 3, 4, 1, 2, 192, 168, 0, 3)), value=Integer(23)),
+             VarBind(oid=ObjectIdentifier((1, 2, 3, 4, 1, 3, 192, 168, 0, 2)), value=Integer(32)),
+             VarBind(oid=ObjectIdentifier((1, 2, 3, 4, 1, 3, 192, 168, 0, 3)), value=Integer(33))]
+
+            >>> tbl = c.table('::1',  '1.2.3.4.1')
+            >>> pprint(tbl)
+            [{'0': '192.168.0.2', '1': Integer(12), '2': Integer(22), '3': Integer(32)},
+             {'0': '192.168.0.3', '1': Integer(13), '2': Integer(23), '3': Integer(33)}]
+
         """
         from puresnmp.x690 import util
+
+        if num_base_nodes == 0:
+            num_base_nodes = len(oid.split('.'))
 
         tmp = self.walk(ip, oid, port=port)
         as_table = util.tablify(tmp, num_base_nodes=num_base_nodes)
