@@ -52,6 +52,29 @@ class TestTransport(unittest.TestCase):
         mck_sendtto.assert_called_with(data, (expect_ip, expect_port))
 
 
+class TestClient(unittest.TestCase):
+    def test_sysdesc(self):
+        """
+        Test a basic SNMP GET on a public SNMP server with a non-standard port
+        Thanks to http://snmpsim.sourceforge.net/public-snmp-simulator.html
+        """
+
+        t = Transport(with_dns=True)
+        c = Client(t, community='recorded/linux-full-walk', version=Version.V2C)
+        g = c.get('demo.snmplabs.com', '1.3.6.1.2.1.1.1.0', port=2161)
+        self.assertTrue('linux' in g.decode('ascii').lower())
+
+    def test_no_dns(self):
+        """
+        Test the with_dns argument of Transport
+        """
+
+        with self.assertRaises(ValueError):
+            t = Transport(with_dns=False)
+            c = Client(t, community='public', version=Version.V2C)
+            g = c.get('dont.resolve.me', '1.3.6.1.2.1.1.1.0')
+
+
 class TestGet(unittest.TestCase):
     @patch('puresnmp.transport.Transport.send')
     @patch('puresnmp.client.Client._get_request_id')

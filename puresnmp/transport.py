@@ -15,10 +15,11 @@ LOG = logging.getLogger(__name__)
 
 
 class Transport:
-    def __init__(self, timeout: int = 2, retry: int = 3, sock_buffer: int = 4096):
+    def __init__(self, timeout: int = 2, retry: int = 3, sock_buffer: int = 4096, with_dns: bool = True):
         self.timeout = timeout
         self.retry = retry
         self.sock_buffer = sock_buffer
+        self.with_dns = with_dns
 
     def send(self, ip: str, port: int, packet: bytes) -> bytes:  # pragma: no cover
         """
@@ -28,11 +29,22 @@ class Transport:
         If the connection fails due to a timeout after *self.timeout*, the connection is retried *self.retry* times.
         If it still failed, a Timeout exception is raised.
         """
-        checked_ip = ip_address(ip)
-        if checked_ip.version == 4:
-            address_family = socket.AF_INET
-        else:
-            address_family = socket.AF_INET6
+        try:
+            checked_ip = ip_address(ip)
+
+            if checked_ip.version == 4:
+                address_family = socket.AF_INET
+            else:
+                address_family = socket.AF_INET6
+
+        except ValueError as ve:
+            if not self.with_dns:
+                raise ve
+
+            # Use the first DNS result
+            addrinf = socket.getaddrinfo(ip, port, proto=socket.IPPROTO_UDP)[0]
+            address_family = addrinf[0]
+            ip = addrinf[4][0]
 
         sock = socket.socket(address_family, socket.SOCK_DGRAM)
         sock.settimeout(self.timeout)
