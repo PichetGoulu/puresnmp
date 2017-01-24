@@ -84,8 +84,8 @@ class PDU(Type):
         if error_status.value:
             msg = ERROR_MESSAGES.get(error_status.value,
                                      'Unknown Error: %s' % error_status.value)
-            # TODO Add detail from the error_index.
-            raise SnmpError('Error packet received: %s!' % msg)
+            raise SnmpError('Error packet received (err_idx: %s): %s!'
+                            % (error_index.pythonize(), msg))
         values, data = pop_tlv(data)
 
         varbinds = [VarBind(*encoded_varbind) for encoded_varbind in values]

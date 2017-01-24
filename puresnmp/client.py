@@ -18,7 +18,7 @@ from .pdu import (
     SetRequest,
     VarBind,
 )
-from .const import Version
+from .const import Version, RowStatus
 from .transport import Transport
 from .util import (
     get_unfinished_walk_oids,
@@ -488,3 +488,118 @@ class Client:
         tmp = self.walk(ip, oid, port=port)
         as_table = util.tablify(tmp, num_base_nodes=num_base_nodes)
         return as_table
+
+    def table_row_count(self, ip: str, oid: str, port: int = DEFAULT_SNMP_PORT, num_base_nodes: int = 0) -> int:
+        return len(self.table(ip, oid, port, num_base_nodes))
+
+    def table_add_row(self, ip: str, table_oid: str, row_identifier: str, row_status_column: int,
+                      fields: List[Tuple[int, Type]], port: int = DEFAULT_SNMP_PORT):
+        """
+        The *row_identifier* (or Instance-Identifier per the RFC2579) can be a simple number that designate
+        the row (like '1' for the first row, '2' for the second, etc.) or be more complexe (like
+        ('192.168.0.1' for the first row, '192.168.0.2' for the second, etc.)
+
+        The *row_status_column* is the index of the column where the RowStatus information can be found.
+
+        The *fields* is a list tuple where the first element is the index of a column and the second
+        is the value of the column to set.
+
+        The row is added using the 'createAndGo' method, creating the row in only one transaction,
+        instead of the 'createAndWait' method which use multiple, coordinated set requests.
+
+        Example::
+
+
+            >>> t = Transport()
+            >>> c = Client(t, community='private')
+            >>> fields = [
+            ...     (1, Integer(1)),
+            ...     (2, OctetString('Test'.encode('ascii'))),
+            ...     (3, Integer(2)),
+            ...     (4, Integer(22)),
+            ...     (5, Integer(23)),
+            ...     (6, IpAddress.from_str('192.168.0.10')),
+            ...     (7, Integer(22)),
+            ...     (8, Integer(23)),
+            ...     (9, IpAddress.from_str('192.168.0.9')),
+            ... ]
+            >>> c.table_add_row('::1', '1.2.3.4.1', row_identifier='3', row_status_column=10, fields=fields)
+
+        """
+
+        # Specs:
+        #   - RFC 2579 Page 10-16: https://tools.ietf.org/html/rfc2579
+        #   - Webnms docs: https://www.webnms.com/snmp/help/snmpapi/snmpv3/table_handling/snmptables_addrow.html
+
+        # Interaction 1: Selecting an Instance-Identifier
+        # This should be done by the application
+        # ---
+        row_identifier = row_identifier
+
+        # Interaction 2a: Creating and Activating the Conceptual Row
+        # ---
+        #     RFC:
+        #     the management station issues a management protocol get
+        #     operation to examine all columns in the conceptual row that
+        #     it wishes to create.  In response, for each column, there
+        #     are three possible outcomes:
+        #             - a value is returned, indicating that some other
+        #              management station has already created this conceptual
+        #              row. [...]
+        #              - the exception `noSuchInstance' is returned,
+        #              indicating that the agent implements the object-type
+        #              associated with this column [...]
+        #              - the exception `noSuchObject' is returned, indicating
+        #              that the agent does not implement the object-type
+        #              associated with this column [...]
+
+        # Per the RFC, we should check each column for the column requirements.
+        # We only GET on the column rowStatus to check if the *row_identifier* already exist.
+        row_status_oid = table_oid + '.' + str(row_status_column) + '.' + row_identifier
+        try:
+            row_status = self.get(ip, row_status_oid, port)
+            raise SnmpError("An other management station has already created this row. "
+                            "identifier: {}".format(row_identifier))
+        except SnmpError:
+            # Todo: We should check the SNMP exception ! (noSuchInstance: Ok or noSuchObject: not OK)
+            pass
+
+        # RFC:
+        # Once the column requirements have been determined, a
+        # management protocol set operation is accordingly issued.
+        # This operation also sets the new instance of the status
+        # column to `createAndGo'.
+
+        # Prepare the mapping of the inserted row
+        mappings = []
+        for column_idx, value in fields:
+            if column_idx == row_status_column:
+                raise ValueError('The value of the column rowStatus is handled by add_row()')
+            oid = table_oid + '.' + str(column_idx) + '.' + row_identifier
+            mappings.append((oid, value))
+
+        # The rowStatus is set to createAndGo
+        mappings.append((row_status_oid, Integer(RowStatus.CREATE_AND_GO)))
+
+        # Send the PDU
+        output = self.multiset(ip, mappings, port)
+
+        # RFC:
+        # [...] If there is sufficient
+        # information available, then the conceptual row is created, a
+        # `noError' response is returned, the status column is set to
+        # `active', and no further interactions are necessary (i.e.,
+        # interactions 3 and 4 are skipped).  If there is insufficient
+        # information, then the conceptual row is not created, and the
+        # set operation fails with an error of `inconsistentValue'.
+        row_status = self.get(ip, row_status_oid, port)
+        if row_status != RowStatus.ACTIVE:
+            raise SnmpError("Could not add the row, rowStatus: {}".format(row_status))
+
+        return output
+
+    def table_delete_row(self, ip: str, table_oid: str, row_identifier: str, row_status_column: int,
+                         port: int = DEFAULT_SNMP_PORT):
+
+        row_status_oid = table_oid + '.' + str(row_status_column) + '.' + row_identifier
+        self.set(ip, row_status_oid, Integer(RowStatus.DESTROY), port)
