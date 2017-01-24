@@ -7,7 +7,7 @@ See `RFC 1155 section 3.2.3`_ for a description of the types.
 """
 
 # pylint: disable=missing-docstring
-
+import ipaddress
 from datetime import timedelta
 
 from .x690.types import Integer, OctetString
@@ -21,6 +21,13 @@ class IpAddress(OctetString):
     TYPECLASS = TypeInfo.APPLICATION
     TAG = 0x00
 
+    @staticmethod
+    def from_ipv4address(ip: ipaddress.IPv4Address):
+        return IpAddress(ip.packed)
+
+    @staticmethod
+    def from_str(ip: str):
+        return IpAddress.from_ipv4address(ipaddress.ip_address(ip))
 
 class Counter(Integer):
     """

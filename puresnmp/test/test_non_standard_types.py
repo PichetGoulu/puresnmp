@@ -1,3 +1,4 @@
+import ipaddress
 from datetime import timedelta
 
 from . import ByteTester
@@ -6,7 +7,6 @@ from .. import types as t
 
 
 class TestIpAddress(ByteTester):
-
     def test_decoding(self):
         result = t.IpAddress.from_bytes(b'\x40\x04\x80\x96\xa1\x09')
         expected = t.IpAddress(b'\x80\x96\xa1\x09')
@@ -34,9 +34,13 @@ class TestIpAddress(ByteTester):
         result = t.IpAddress(input).pythonize()
         self.assertEqual(result, input)
 
+    def test_from_ipaddress_lib(self):
+        input = t.IpAddress.from_ipv4address(ipaddress.IPv4Address('192.168.0.1'))
+        expected = t.IpAddress(b'\xc0\xa8\x00\x01')
+        self.assertEquals(input, expected)
+
 
 class TestTimeTicks(ByteTester):
-
     def test_decoding(self):
         result = t.TimeTicks.from_bytes(b'\x43\x01\x0a')
         expected = t.TimeTicks(10)
