@@ -14,7 +14,8 @@ LOG = logging.getLogger(__name__)
 
 
 class Transport:
-    def __init__(self, timeout: int = 2, retry: int = 3, sock_buffer: int = 4096, with_dns: bool = True):
+    def __init__(self, timeout: int = 2, retry: int = 3,
+                 sock_buffer: int = 4096, with_dns: bool = True):
         self.timeout = timeout
         self.retry = retry
         self.sock_buffer = sock_buffer
@@ -22,10 +23,11 @@ class Transport:
 
     def send(self, ip: str, port: int, packet: bytes) -> bytes:
         """
-        Opens a TCP connection to *ip:port*, sends a packet with *bytes* and returns
-        the raw bytes as returned from the remote host.
+        Opens a TCP connection to *ip:port*, sends a packet with *bytes* and
+        returns the raw bytes as returned from the remote host.
 
-        If the connection fails due to a timeout after *self.timeout*, the connection is retried *self.retry* times.
+        If the connection fails due to a timeout after *self.timeout*,
+        the connection is retried *self.retry* times.
         If it still failed, a Timeout exception is raised.
         """
         if self.with_dns:
@@ -52,7 +54,8 @@ class Transport:
                 response = sock.recv(self.sock_buffer)
                 break
             except socket.timeout:
-                LOG.error('Timeout after %d sec for ip %s', self.timeout, ip)  # TODO add more details ?
+                # TODO add more details ?
+                LOG.error('Timeout after %d sec for ip %s', self.timeout, ip)
                 continue
         else:
             raise Timeout("Max of %d retries reached" % self.retry)

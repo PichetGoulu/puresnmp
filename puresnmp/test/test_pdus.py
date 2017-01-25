@@ -140,7 +140,7 @@ class TestGet(ByteTester):
                 [
                     VarBind(
                         ObjectIdentifier.from_string('1.3.6.1.2.1.1.2.0'),
-                        ObjectIdentifier.from_string('1.3.6.1.4.1.8072.3.2.10'),
+                        ObjectIdentifier.from_string('1.3.6.1.4.1.8072.3.2.10')
                     ),
                     VarBind(
                         ObjectIdentifier.from_string('1.3.6.1.2.1.1.1.0'),

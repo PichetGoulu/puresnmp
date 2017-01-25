@@ -35,7 +35,8 @@ class TestIpAddress(ByteTester):
         self.assertEqual(result, input)
 
     def test_from_ipaddress_lib(self):
-        input = t.IpAddress.from_ipv4address(ipaddress.IPv4Address('192.168.0.1'))
+        iplib = ipaddress.IPv4Address('192.168.0.1')
+        input = t.IpAddress.from_ipv4address(iplib)
         expected = t.IpAddress(b'\xc0\xa8\x00\x01')
         self.assertEquals(input, expected)
 

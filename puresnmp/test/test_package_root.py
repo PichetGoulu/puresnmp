@@ -38,7 +38,8 @@ class TestTransport(unittest.TestCase):
         expect_ip = '127.0.0.1'
         expect_buffer = 4000
         expect_retry = 2
-        t = Transport(timeout=expect_timeout_sec, sock_buffer=expect_buffer, retry=expect_retry)
+        t = Transport(timeout=expect_timeout_sec, sock_buffer=expect_buffer,
+                      retry=expect_retry)
 
         import socket
         mck_recv.side_effect = socket.timeout  # Raise a timeout
@@ -323,7 +324,8 @@ class TestGetBulkGet(unittest.TestCase):
         data = readbytes('bulk_get_response.hex')
         expected = BulkResult(
             {'1.3.6.1.2.1.1.1.0': b'Linux 7e68e60fe303 4.4.0-28-generic '
-                                  b'#47-Ubuntu SMP Fri Jun 24 10:09:13 UTC 2016 x86_64'},
+                                  b'#47-Ubuntu SMP Fri Jun 24 10:09:13 '
+                                  b'UTC 2016 x86_64'},
             {'1.3.6.1.2.1.3.1.1.1.10.1.172.17.0.1': 10,
              '1.3.6.1.2.1.3.1.1.2.10.1.172.17.0.1': b'\x02B\xe2\xc5\x8d\t',
              '1.3.6.1.2.1.3.1.1.3.10.1.172.17.0.1': b'\xac\x11\x00\x01',
@@ -430,8 +432,10 @@ class TestGetBulkWalk(unittest.TestCase):
             VarBind('1.3.6.1.2.1.2.2.1.20.10', 0),
             VarBind('1.3.6.1.2.1.2.2.1.21.1', 0),
             VarBind('1.3.6.1.2.1.2.2.1.21.10', 0),
-            VarBind('1.3.6.1.2.1.2.2.1.22.1', '0.0'),  # TODO: type info is lost
-            VarBind('1.3.6.1.2.1.2.2.1.22.10', '0.0'),  # TODO: type info is lost
+            # TODO: type info is lost
+            VarBind('1.3.6.1.2.1.2.2.1.22.1', '0.0'),
+            # TODO: type info is lost
+            VarBind('1.3.6.1.2.1.2.2.1.22.10', '0.0'),
         ]
 
         # TODO: Expected types per OID:
@@ -503,14 +507,20 @@ class TestGetTable(unittest.TestCase):
     @patch('puresnmp.client.Client._get_request_id')
     def test_table_num_base_nodes(self, mck_rid, mck_walk):
         res = [
-            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.1.192.168.0.2'), Integer(12)),
-            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.1.192.168.0.3'), Integer(13)),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.1.192.168.0.2'),
+                    Integer(12)),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.1.192.168.0.3'),
+                    Integer(13)),
 
-            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.2.192.168.0.2'), Integer(22)),
-            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.2.192.168.0.3'), Integer(23)),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.2.192.168.0.2'),
+                    Integer(22)),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.2.192.168.0.3'),
+                    Integer(23)),
 
-            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.3.192.168.0.2'), Integer(32)),
-            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.3.192.168.0.3'), Integer(33)),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.3.192.168.0.2'),
+                    Integer(32)),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.3.192.168.0.3'),
+                    Integer(33)),
         ]
 
         expect_192_168_0_2 = {
@@ -540,7 +550,8 @@ class TestGetTable(unittest.TestCase):
             elif entry['0'] == '192.168.0.3':
                 self.assertDictEqual(entry, expect_192_168_0_3)
             else:
-                raise AssertionError("Key \"{}\" should not be here".format(entry['0']))
+                raise AssertionError("Key \"{}\" should not be here"
+                                     .format(entry['0']))
 
     @patch('puresnmp.x690.util.tablify')
     @patch('puresnmp.client.Client.walk')

@@ -4,11 +4,12 @@ import unittest
 
 DATA_DIR = join(dirname(__file__), 'data')
 
-__unittest = True  # <- This disables stack traces in unittest output for
-                   # everything in this module.
+# This disables stack traces in unittest output for everything in this module.
+__unittest = True
 
 
 class ByteTester(unittest.TestCase):
+
     def assertBytesEqual(self, a, b):
         """
         Helper method to compare bytes with more helpful output.
@@ -53,7 +54,8 @@ class ByteTester(unittest.TestCase):
                         char_bh,
                         marker))
             raise AssertionError('Bytes differ!\n' +
-                                 'type(a)=%s, type(b)=%s\n' % (type(a), type(b)) +
+                                 'type(a)=%s, ' % type(a) +
+                                 'type(b)=%s\n' % type(b) +
                                  '\nIndividual bytes:\n' +
                                  '\n'.join(comparisons))
 

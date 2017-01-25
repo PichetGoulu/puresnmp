@@ -33,7 +33,8 @@ class TestTypeInfoDecoding(ByteTester):
 
     def test_from_bytes_d(self):
         result = TypeInfo.from_bytes(0b01111110)
-        expected = TypeInfo(TypeInfo.APPLICATION, TypeInfo.CONSTRUCTED, 0b11110)
+        expected = TypeInfo(TypeInfo.APPLICATION, TypeInfo.CONSTRUCTED,
+                            0b11110)
         self.assertEqual(result, expected)
 
     def test_from_bytes_e(self):

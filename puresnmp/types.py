@@ -29,6 +29,7 @@ class IpAddress(OctetString):
     def from_str(ip: str):
         return IpAddress.from_ipv4address(ipaddress.ip_address(ip))
 
+
 class Counter(Integer):
     """
     SNMP type for counters.

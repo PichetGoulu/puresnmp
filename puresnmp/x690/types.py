@@ -106,7 +106,8 @@ class Type(metaclass=Registry):
         Given a bytes object, checks if the given class *cls* supports decoding
         this object. If not, raises a ValueError.
         """
-        # TODO: Making this function return a boolean instead of raising an exception would make the code potentially more readable.
+        # TODO: Making this function return a boolean instead of raising
+        # an exception would make the code potentially more readable.
         tinfo = TypeInfo.from_bytes(data[0])
         if tinfo.cls != cls.TYPECLASS or tinfo.tag != cls.TAG:
             raise ValueError('Invalid type header! '
@@ -137,12 +138,13 @@ class Type(metaclass=Registry):
     def decode(cls, data):  # pragma: no cover
         """
         This method takes a bytes object which contains the raw content octets
-        of the object. That means, the octets *without* the type information and
-        length.
+        of the object. That means, the octets *without* the type information
+        and length.
 
         This function must be overridden by the concrete subclasses.
         """
-        raise NotImplementedError('Decoding is not yet implemented on %s' % cls)
+        raise NotImplementedError('Decoding is not yet implemented on %s'
+                                  % cls)
 
     def __bytes__(self):  # pragma: no cover
         """
@@ -234,8 +236,8 @@ class Boolean(Type):
     def validate(cls, data):
         super().validate(data)
         if data[1] != 1:
-            raise ValueError('Unexpected Boolean value. Length should be 1, it '
-                             'was %d' % data[1])
+            raise ValueError('Unexpected Boolean value. Length should be 1, '
+                             'it was %d' % data[1])
 
     def __init__(self, value):
         self.value = value
@@ -327,7 +329,8 @@ class Sequence(Type):
         output = [bytes(item) for item in self]
         output = b''.join(output)
         length = encode_length(len(output))
-        tinfo = TypeInfo(TypeInfo.UNIVERSAL, TypeInfo.CONSTRUCTED, Sequence.TAG)
+        tinfo = TypeInfo(TypeInfo.UNIVERSAL, TypeInfo.CONSTRUCTED,
+                         Sequence.TAG)
         return bytes(tinfo) + length + output
 
     def __eq__(self, other):
@@ -387,7 +390,8 @@ class Integer(Type):
             # remove leading octet if there is a string of 9 zeros or ones
             while (len(octets) > 1 and
                    ((octets[0] == 0 and octets[1] & 0b10000000 == 0) or
-                    (octets[0] == 0b11111111 and octets[1] & 0b10000000 != 0))):
+                    (octets[0] == 0b11111111 and octets[1] & 0b10000000 != 0))
+                   ):
                 del octets[0]
 
         tinfo = TypeInfo(self.TYPECLASS, TypeInfo.PRIMITIVE, self.TAG)
@@ -454,8 +458,8 @@ class ObjectIdentifier(Type):
         remaining = iter(data[1:])
 
         for char in remaining:
-            # Each node can only contain values from 0-127. Other values need to
-            # be combined.
+            # Each node can only contain values from 0-127. Other values need
+            # to be combined.
             if char > 127:
                 collapsed_value = ObjectIdentifier.decode_large_value(
                     char, remaining)
@@ -486,7 +490,8 @@ class ObjectIdentifier(Type):
         if len(identifiers) > 1:
             # The first two bytes are collapsed according to X.690
             # See https://en.wikipedia.org/wiki/X.690#BER_encoding
-            first, second, rest = identifiers[0], identifiers[1], identifiers[2:]  # NOQA
+            first, second, rest = identifiers[0], identifiers[1], \
+                                  identifiers[2:]  # NOQA
             first_output = (40*first) + second
         else:
             first_output = 1
