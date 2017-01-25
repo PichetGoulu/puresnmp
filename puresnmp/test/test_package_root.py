@@ -4,7 +4,7 @@ Test the "external" interface.
 The "external" interface is what the user sees. It should be pythonic and easy
 to use.
 """
-
+import socket
 from datetime import timedelta
 from unittest.mock import patch, call
 import unittest
@@ -51,6 +51,11 @@ class TestTransport(unittest.TestCase):
         mck_settimeout.assert_called_with(expect_timeout_sec)
         mck_sendtto.assert_called_with(data, (expect_ip, expect_port))
 
+    def test_without_dns(self):
+        t = Transport(with_dns=False)
+        with self.assertRaises(socket.gaierror):
+            t.send('dont.resolve.me', 151, b'')
+
 
 class TestClient(unittest.TestCase):
     def test_sysdesc(self):
@@ -60,18 +65,19 @@ class TestClient(unittest.TestCase):
         """
 
         t = Transport(with_dns=True)
-        c = Client(t, community='recorded/linux-full-walk', version=Version.V2C)
+        c = Client(community='recorded/linux-full-walk',
+                   version=Version.V2C)
         g = c.get('demo.snmplabs.com', '1.3.6.1.2.1.1.1.0', port=2161)
         self.assertTrue('linux' in g.decode('ascii').lower())
 
-    def test_no_dns(self):
+    def test_without_dns(self):
         """
         Test the with_dns argument of Transport
         """
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(socket.gaierror):
             t = Transport(with_dns=False)
-            c = Client(t, community='public', version=Version.V2C)
+            c = Client(transport=t, community='public', version=Version.V2C)
             g = c.get('dont.resolve.me', '1.3.6.1.2.1.1.1.0')
 
 
@@ -88,7 +94,7 @@ class TestGet(unittest.TestCase):
             OctetString('public'),
             GetRequest(0, ObjectIdentifier(1, 2, 3))
         )
-        client = Client(transport=Transport(), community='public')
+        client = Client(community='public')
         mck_rid.return_value = 0
         mck_send.return_value = data
         client.get('::1', '1.2.3')
@@ -97,7 +103,7 @@ class TestGet(unittest.TestCase):
     @patch('puresnmp.transport.Transport.send')
     def test_get_string(self, mck_send):
         data = readbytes('get_sysdescr_01.hex')
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         expected = (b'Linux d24cf7f36138 4.4.0-28-generic #47-Ubuntu SMP '
                     b'Fri Jun 24 10:09:13 UTC 2016 x86_64')
         mck_send.return_value = data
@@ -108,7 +114,7 @@ class TestGet(unittest.TestCase):
     def test_get_oid(self, mck_send):
         data = readbytes('get_sysoid_01.hex')
         expected = ('1.3.6.1.4.1.8072.3.2.10')
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         mck_send.return_value = data
         result = client.get('::1', '1.2.3')
         self.assertEqual(result, expected)
@@ -119,7 +125,7 @@ class TestGet(unittest.TestCase):
         A "GET" response should only return one varbind.
         """
         data = readbytes('get_sysoid_01_error.hex')
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         mck_send.return_value = data
         with self.assertRaisesRegexp(SnmpError, 'varbind'):
             client.get('::1', '1.2.3')
@@ -131,7 +137,7 @@ class TestGet(unittest.TestCase):
         exception.
         """
         data = readbytes('get_non_existing.hex')
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         mck_send.return_value = data
         with self.assertRaises(NoSuchOID):
             client.get('::1', '1.2.3')
@@ -143,7 +149,7 @@ class TestWalk(unittest.TestCase):
         response_1 = readbytes('walk_response_1.hex')
         response_2 = readbytes('walk_response_2.hex')
         response_3 = readbytes('walk_response_3.hex')
-        client = Client(transport=Transport(), community='public')
+        client = Client(community='public')
 
         expected = [VarBind(
             ObjectIdentifier.from_string('1.3.6.1.2.1.2.2.1.5.1'), 10000000
@@ -161,7 +167,7 @@ class TestWalk(unittest.TestCase):
         A "WALK" response should only return one varbind.
         """
         data = readbytes('get_sysoid_01_error.hex')
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         mck_send.return_value = data
         with self.assertRaisesRegexp(SnmpError, 'varbind'):
             next(client.walk('::1', '1.2.3'))
@@ -173,14 +179,14 @@ class TestSet(unittest.TestCase):
         As we need typing information, we have to hand in an instance of
         supported types (a subclass of puresnmp.x690.Type).
         """
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         with self.assertRaisesRegexp(TypeError, 'Type'):
             client.set('::1', '1.2.3', 12)
 
     @patch('puresnmp.transport.Transport.send')
     def test_set(self, mck_send):
         data = readbytes('set_response.hex')
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         mck_send.return_value = data
         client.set('::1', '1.3.6.1.2.1.1.4.0',
                    OctetString(b'hello@world.com'))
@@ -191,7 +197,7 @@ class TestSet(unittest.TestCase):
         SET responses should only contain one varbind.
         """
         data = readbytes('set_response_multiple.hex')
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         mck_send.return_value = data
         with self.assertRaisesRegexp(SnmpError, 'varbind'):
             client.set('::1', '1.3.6.1.2.1.1.4.0',
@@ -205,7 +211,7 @@ class TestMultiGet(unittest.TestCase):
         expected = ['1.3.6.1.4.1.8072.3.2.10',
                     b"Linux 7fbf2f0c363d 4.4.0-28-generic #47-Ubuntu SMP Fri "
                     b"Jun 24 10:09:13 UTC 2016 x86_64"]
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         mck_send.return_value = data
         result = client.multiget('::1', [
             '1.3.6.1.2.1.1.2.0',
@@ -231,7 +237,7 @@ class TestMultiWalk(unittest.TestCase):
             ObjectIdentifier.from_string('1.3.6.1.2.1.2.2.1.2.78'), b'eth0'
         )]
 
-        client = Client(transport=Transport(), community='public')
+        client = Client(community='public')
         mck_send.side_effect = [response_1, response_2, response_3]
         result = list(client.multiwalk('::1', [
             '1.3.6.1.2.1.2.2.1.1',
@@ -251,7 +257,7 @@ class TestMultiSet(unittest.TestCase):
               unit-testing. It probably has a different type in the real world!
         """
         data = readbytes('multiset_response.hex')
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         mck_send.return_value = data
         result = client.multiset('::1', [
             ('1.3.6.1.2.1.1.4.0', OctetString(b'hello@world.com')),
@@ -274,7 +280,7 @@ class TestGetNext(unittest.TestCase):
             OctetString('public'),
             GetNextRequest(0, ObjectIdentifier(1, 2, 3))
         )
-        client = Client(transport=Transport(), community='public')
+        client = Client(community='public')
         mck_rid.return_value = 0
         mck_send.return_value = data
         client.getnext('::1', '1.2.3')
@@ -285,7 +291,7 @@ class TestGetNext(unittest.TestCase):
         data = readbytes('getnext_response.hex')
         expected = VarBind('1.3.6.1.6.3.1.1.6.1.0', 354522558)
 
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         mck_send.return_value = data
         result = client.getnext('::1', '1.3.6.1.5')
         self.assertEqual(result, expected)
@@ -303,7 +309,7 @@ class TestGetBulkGet(unittest.TestCase):
                            ObjectIdentifier(1, 2, 3),
                            ObjectIdentifier(1, 2, 4))
         )
-        client = Client(transport=Transport(), community='public')
+        client = Client(community='public')
         mck_rid.return_value = 0
         mck_send.return_value = data
         client.bulkget('::1',
@@ -323,7 +329,7 @@ class TestGetBulkGet(unittest.TestCase):
              '1.3.6.1.2.1.3.1.1.3.10.1.172.17.0.1': b'\xac\x11\x00\x01',
              '1.3.6.1.2.1.4.1.0': 1,
              '1.3.6.1.2.1.4.3.0': 57})
-        client = Client(transport=Transport(), community='public')
+        client = Client(community='public')
         mck_send.return_value = data
         result = client.bulkget('::1',
                                 ['1.3.6.1.2.1.1.1'],
@@ -342,7 +348,7 @@ class TestGetBulkWalk(unittest.TestCase):
             OctetString('public'),
             BulkGetRequest(0, 0, 2, ObjectIdentifier(1, 2, 3))
         )
-        client = Client(transport=Transport(), community='public')
+        client = Client(community='public')
         mck_send.return_value = data
         mck_rid.return_value = 0
 
@@ -359,7 +365,7 @@ class TestGetBulkWalk(unittest.TestCase):
         req2 = readbytes('bulkwalk_request_2.hex')
         req3 = readbytes('bulkwalk_request_3.hex')
 
-        client = Client(transport=Transport(), community='private')
+        client = Client(community='private')
         responses = [
             readbytes('bulkwalk_response_1.hex'),
             readbytes('bulkwalk_response_2.hex'),
@@ -487,7 +493,7 @@ class TestGetTable(unittest.TestCase):
         tmp = list()  # dummy iterable return value
         mck_walk.return_value = tmp
 
-        client = Client(transport=Transport(), community='public')
+        client = Client(community='public')
         client.table('::1', '1.2.3.4', port=161, num_base_nodes=2)
 
         mck_walk.assert_called_with('::1', '1.2.3.4', port=161)
@@ -523,7 +529,7 @@ class TestGetTable(unittest.TestCase):
         mck_rid.return_value = 0
         mck_walk.return_value = res
 
-        client = Client(transport=Transport(), community='public')
+        client = Client(community='public')
         tbl = client.table('::1', '1.2.3.4.1', num_base_nodes=5)
 
         self.assertEqual(2, len(tbl))
@@ -544,7 +550,7 @@ class TestGetTable(unittest.TestCase):
         tmp = list()  # dummy iterable return value
         mck_walk.return_value = tmp
 
-        client = Client(transport=Transport(), community='public')
+        client = Client(community='public')
         tbl = client.table('::1', '1.2.3.4.1')
 
         mck_tablify.assert_called_with(tmp, num_base_nodes=5)

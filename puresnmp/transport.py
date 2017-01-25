@@ -7,7 +7,6 @@ testing.
 
 import socket
 import logging
-from ipaddress import ip_address
 
 from .exc import Timeout
 
@@ -21,7 +20,7 @@ class Transport:
         self.sock_buffer = sock_buffer
         self.with_dns = with_dns
 
-    def send(self, ip: str, port: int, packet: bytes) -> bytes:  # pragma: no cover
+    def send(self, ip: str, port: int, packet: bytes) -> bytes:
         """
         Opens a TCP connection to *ip:port*, sends a packet with *bytes* and returns
         the raw bytes as returned from the remote host.
@@ -29,22 +28,15 @@ class Transport:
         If the connection fails due to a timeout after *self.timeout*, the connection is retried *self.retry* times.
         If it still failed, a Timeout exception is raised.
         """
-        try:
-            checked_ip = ip_address(ip)
+        if self.with_dns:
+            addrinf = socket.getaddrinfo(ip, port, proto=socket.IPPROTO_UDP)
+        else:
+            addrinf = socket.getaddrinfo(ip, port, proto=socket.IPPROTO_UDP,
+                                         flags=socket.AI_NUMERICHOST)
 
-            if checked_ip.version == 4:
-                address_family = socket.AF_INET
-            else:
-                address_family = socket.AF_INET6
-
-        except ValueError as ve:
-            if not self.with_dns:
-                raise ve
-
-            # Use the first DNS result
-            addrinf = socket.getaddrinfo(ip, port, proto=socket.IPPROTO_UDP)[0]
-            address_family = addrinf[0]
-            ip = addrinf[4][0]
+        # Use the first DNS result
+        address_family = addrinf[0][0]
+        ip = addrinf[0][4][0]
 
         sock = socket.socket(address_family, socket.SOCK_DGRAM)
         sock.settimeout(self.timeout)

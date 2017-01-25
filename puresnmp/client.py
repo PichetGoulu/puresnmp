@@ -36,11 +36,18 @@ class Client:
     """
     DEFAULT_SNMP_PORT = 161
 
-    def __init__(self, transport: Transport, community: str = 'public', version: Version = Version.V2C):
+    def __init__(self, community: str = 'public', transport: Transport = None,
+                 version: Version = Version.V2C):
         """
-        A SNMP Client sending SNMP packets of a specific *community* and *version*
-        The SNMP packets are send using *transport*
+        A SNMP Client sending SNMP packets of a specific *community*
+        and *version*.
+        The SNMP packets are sent using *transport* or using a default
+        Transport.
         """
+
+        if transport is None:
+            transport = Transport()
+
         self._transport = transport
         self._community = community
         self._version = version
@@ -59,8 +66,7 @@ class Client:
 
         Example::
 
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> c.get('192.168.1.1', '1.2.3.4')
             'non-functional example'
         """
@@ -74,8 +80,7 @@ class Client:
 
         Example::
 
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> c.multiget('192.168.1.1', ['1.2.3.4', '1.2.3.5'])
             ['non-functional example', 'second value']
         """
@@ -103,8 +108,7 @@ class Client:
 
         Example::
 
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> c.getnext('192.168.1.1', '1.2.3')
             VarBind(ObjectIdentifier(1, 2, 3, 0), 'non-functional example')
         """
@@ -119,8 +123,7 @@ class Client:
 
         Example::
 
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> c.multigetnext('192.168.1.1', ['1.2.3', '1.2.4'])
             [
                 VarBind(ObjectIdentifier(1, 2, 3, 0), 'non-functional example'),
@@ -153,8 +156,7 @@ class Client:
 
         Example::
 
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> c.walk('127.0.0.1', '1.3.6.1.2.1.1')
             <generator object multiwalk at 0x7fa2f775cf68>
 
@@ -180,8 +182,7 @@ class Client:
 
         Example::
 
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> c.multiwalk('127.0.0.1', ['1.3.6.1.2.1.1', '1.3.6.1.4.1.1'])
             <generator object multiwalk at 0x7fa2f775cf68>
         """
@@ -238,8 +239,7 @@ class Client:
 
         Example::
 
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> c.set('127.0.0.1', '1.3.6.1.2.1.1.4.0',
             ...     OctetString(b'I am contact'))
             b'I am contact'
@@ -257,8 +257,7 @@ class Client:
 
         Fake Example::
 
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> c.multiset('127.0.0.1', [('1.2.3', OctetString(b'foo')),
 ...                                      ('2.3.4', OctetString(b'bar'))])
             {'1.2.3': b'foo', '2.3.4': b'bar'}
@@ -312,8 +311,7 @@ class Client:
 
         Example::
 
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> result = c.bulkget(ip,
             ...                  scalar_oids=['1.3.6.1.2.1.1.1',
             ...                               '1.3.6.1.2.1.1.2'],
@@ -424,8 +422,7 @@ class Client:
         Example::
 
 
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> oids = [
             ...     '1.3.6.1.2.1.2.2.1.2',   # name
             ...     '1.3.6.1.2.1.2.2.1.6',   # MAC
@@ -463,8 +460,7 @@ class Client:
 
 
             >>> from pprint import pprint
-            >>> t = Transport()
-            >>> c = Client(t, 'private')
+            >>> c = Client('private')
             >>> wlk = c.walk('::1', '1.2.3.4.1')
             >>> pprint(wlk)
             [VarBind(oid=ObjectIdentifier((1, 2, 3, 4, 1, 1, 192, 168, 0, 2)), value=Integer(12)),
@@ -510,8 +506,7 @@ class Client:
         Example::
 
 
-            >>> t = Transport()
-            >>> c = Client(t, community='private')
+            >>> c = Client('private')
             >>> fields = [
             ...     (1, Integer(1)),
             ...     (2, OctetString('Test'.encode('ascii'))),
