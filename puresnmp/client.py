@@ -57,8 +57,8 @@ class Client:
         Generates a SNMP request-id.
         This value should be locally unique for each request (Per RFC3413).
         """
-        from time import time
-        return int(time())
+        import random
+        return int(random.random() * 1000000000) & 0xFFFFFFFF
 
     def get(self, ip: str, oid: str, port: int = DEFAULT_SNMP_PORT):
         """
