@@ -565,3 +565,64 @@ class TestGetTable(unittest.TestCase):
         tbl = client.table('::1', '1.2.3.4.1')
 
         mck_tablify.assert_called_with(tmp, num_base_nodes=5)
+
+    @patch('puresnmp.client.Client.multigetnext')
+    @patch('puresnmp.client.Client._get_request_id')
+    def test_table_multiwalk(self, mck_rid, mck_multigetnext):
+        first_get_next_res = [
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.1.192.168.0.2'),
+                    12),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.2.192.168.0.2'),
+                    22),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.3.192.168.0.2'),
+                    32),
+        ]
+
+        second_get_next_res = [
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.1.192.168.0.3'),
+                    13),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.2.192.168.0.3'),
+                    23),
+            VarBind(ObjectIdentifier.from_string('1.2.3.4.1.3.192.168.0.3'),
+                    33),
+        ]
+
+        expect_192_168_0_2 = {
+            '0': '192.168.0.2',
+            '1': 12,
+            '2': 22,
+            '3': 32,
+        }
+        expect_192_168_0_3 = {
+            '0': '192.168.0.3',
+            '1': 13,
+            '2': 23,
+            '3': 33,
+        }
+
+        def multigetnext_replies(ip, oids, port):
+            if '1.2.3.4.1.1' in oids:
+                return first_get_next_res
+            elif '1.2.3.4.1.1.192.168.0.2' in oids:
+                return second_get_next_res
+            elif '1.2.3.4.1.1.192.168.0.3' in oids:
+                raise NoSuchOID
+            self.fail()
+
+        mck_rid.side_effect = [0, 1]
+        mck_multigetnext.side_effect = multigetnext_replies
+        mck_multigetnext.__name__ = 'mck_multigetnext'
+
+        client = Client(community='public')
+        tbl = client.table('::1', '1.2.3.4.1', column_count=3)
+
+        self.assertEqual(2, len(tbl))
+
+        for entry in tbl:
+            if entry['0'] == '192.168.0.2':
+                self.assertDictEqual(entry, expect_192_168_0_2)
+            elif entry['0'] == '192.168.0.3':
+                self.assertDictEqual(entry, expect_192_168_0_3)
+            else:
+                raise AssertionError("Key \"{}\" should not be here"
+                                     .format(entry['0']))

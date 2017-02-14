@@ -475,13 +475,17 @@ class Client:
             yield VarBind(oid, value)
 
     def table(self, ip: str, oid: str, port: int = DEFAULT_SNMP_PORT,
-              num_base_nodes: int = 0):
+              column_count: int = 0, num_base_nodes: int = 0):
         """
         Run a series of GETNEXT requests on an OID and construct a table from
         the result.
 
         The table is a row of dicts. The key of each dict is the row ID.
         By default that is the **last** node of the OID tree.
+
+        If the number of columns is given, compute a series of oids and use
+        the faster :py:func:`~.multiwalk` to query row per row instead of
+        cell per cell.
 
         If the rows are identified by multiple nodes, the number of base nodes
         is computed from *oid* (an *oid* of '1.2.3.4' would set the
@@ -521,8 +525,17 @@ class Client:
         if num_base_nodes == 0:
             num_base_nodes = len(oid.split('.'))
 
-        tmp = self.walk(ip, oid, port=port)
-        as_table = util.tablify(tmp, num_base_nodes=num_base_nodes)
+        walk_result = None
+        if column_count == 0:
+            walk_result = self.walk(ip, oid, port=port)
+        else:
+            oids = [
+                oid + '.' + str(col)
+                for col in range(1, column_count + 1)
+            ]
+            walk_result = self.multiwalk(ip, oids, port=port)
+
+        as_table = util.tablify(walk_result, num_base_nodes=num_base_nodes)
         return as_table
 
     def table_row_count(self, ip: str, oid: str, port: int = DEFAULT_SNMP_PORT,
