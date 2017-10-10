@@ -48,9 +48,9 @@ class Transport:
             hexdump = visible_octets(packet)
             LOG.debug('Sending packet to %s:%s\n%s', ip, port, hexdump)
 
-        sock.sendto(packet, (ip, port))
         for _ in range(self.retry):
             try:
+                sock.sendto(packet, (ip, port))
                 response = sock.recv(self.sock_buffer)
                 break
             except socket.timeout:
