@@ -475,17 +475,13 @@ class Client:
             yield VarBind(oid, value)
 
     def table(self, ip: str, oid: str, port: int = DEFAULT_SNMP_PORT,
-              column_count: int = 0, num_base_nodes: int = 0):
+              max_repetitions: int = 10, num_base_nodes: int = 0):
         """
-        Run a series of GETNEXT requests on an OID and construct a table from
+        Run a series of GETBULK requests on an OID and construct a table from
         the result.
 
         The table is a row of dicts. The key of each dict is the row ID.
         By default that is the **last** node of the OID tree.
-
-        If the number of columns is given, compute a series of oids and use
-        the faster :py:func:`~.multiwalk` to query row per row instead of
-        cell per cell.
 
         If the rows are identified by multiple nodes, the number of base nodes
         is computed from *oid* (an *oid* of '1.2.3.4' would set the
@@ -512,7 +508,7 @@ class Client:
              VarBind(oid=ObjectIdentifier((1, 2, 3, 4, 1, 3, 192, 168, 0, 3)),
                      value=Integer(33))]
 
-            >>> tbl = c.table('::1',  '1.2.3.4.1')
+            >>> tbl = c.table('::1', '1.2.3.4.1')
             >>> pprint(tbl)
             [{'0': '192.168.0.2', '1': Integer(12), '2': Integer(22),
                                   '3': Integer(32)},
@@ -525,17 +521,9 @@ class Client:
         if num_base_nodes == 0:
             num_base_nodes = len(oid.split('.'))
 
-        walk_result = None
-        if column_count == 0:
-            walk_result = self.walk(ip, oid, port=port)
-        else:
-            oids = [
-                oid + '.' + str(col)
-                for col in range(1, column_count + 1)
-            ]
-            walk_result = self.multiwalk(ip, oids, port=port)
-
-        as_table = util.tablify(walk_result, num_base_nodes=num_base_nodes)
+        wlk = self.multiwalk(ip, [oid], port=port,
+                             fetcher=self._bulkwalk_fetcher(max_repetitions))
+        as_table = util.tablify(wlk, num_base_nodes=num_base_nodes)
         return as_table
 
     def table_row_count(self, ip: str, oid: str, port: int = DEFAULT_SNMP_PORT,
